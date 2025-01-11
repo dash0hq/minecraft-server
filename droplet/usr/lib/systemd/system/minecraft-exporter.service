@@ -1,0 +1,14 @@
+[Unit]
+Description=Minecraft Exporter
+Wants=network-online.target
+After=network-online.target
+[Service]
+User=minecraft
+Group=minecraft
+Type=simple
+ExecStart=/home/minecraft/minecraft-exporter \
+  --mc.rcon-address=":25564" \
+  --mc.rcon-password=minecraft-12345 \
+  --mc.world=/home/minecraft/world
+[Install]
+WantedBy=multi-user.target

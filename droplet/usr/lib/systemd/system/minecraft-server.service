@@ -1,0 +1,31 @@
+[Unit]
+Description=Minecraft Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Ensure to set the correct user and working directory (installation directory of your server) here
+User=minecraft
+WorkingDirectory=/home/minecraft
+# Configure the OpenTelemetry Java agent
+Environment="JAVA_TOOL_OPTIONS=-javaagent:/opt/otel/java/opentelemetry-javaagent.jar"
+Environment="OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318"
+Environment="OTEL_SERVICE_NAME=minecraft-server"
+Environment="OTEL_RESOURCE_ATTRIBUTES=service.namespace=minecraft,service.version=1.21.4"
+
+# You can customize the maximum amount of memory as well as the JVM flags here
+ExecStart=/usr/bin/java -XX:+UseG1GC -Xmx3G -Xmx3G -XX:UseSSE=3 -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M -Xnoclassgc -server -jar server.jar --noconsole
+
+# Restart the server when it is stopped or crashed after 30 seconds
+# Comment out RestartSec if you want to restart immediately
+Restart=always
+RestartSec=30
+
+# Alternative: Restart the server only when it stops regularly
+# Restart=on-success
+
+# Do not remove this!
+StandardInput=null
+
+[Install]
+WantedBy=multi-user.target

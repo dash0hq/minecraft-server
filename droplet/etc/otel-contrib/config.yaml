@@ -1,0 +1,189 @@
+extensions:
+  health_check:
+  bearertokenauth/dash0:
+    scheme: Bearer
+    token: ${DASH0_TOKEN}
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+  journald/minecraft:
+    units:
+    - minecraft-server
+  journald/minecraft-exporter:
+    units:
+    - minecraft-exporter
+  journald/self-monitoring:
+    units:
+    - otelcol-contrib
+  prometheus/minecraft-exporter:
+    config:
+      scrape_configs:
+      - job_name: minecraft-exporter
+        scrape_interval: 10s
+        static_configs:
+        - targets:
+          - 127.0.0.1:9150
+  prometheus/self-monitoring:
+    config:
+      scrape_configs:
+      - job_name: opentelemetry-collector
+        scrape_interval: 10s
+        static_configs:
+        - targets:
+          - 127.0.0.1:8888
+  hostmetrics/cpu_and_memory:
+    collection_interval: 10s
+    scrapers:
+      cpu:
+      memory:
+  hostmetrics/disk:
+    collection_interval: 1m
+    scrapers:
+      disk:
+      filesystem:
+
+processors:
+  batch:
+  resourcedetection/system:
+    detectors: ["system"]
+    system:
+      hostname_sources: ["os"]
+  resource/digital_ocean:
+    attributes:
+    - key: cloud.provider
+      value: digital_ocean
+      action: upsert
+    - key: cloud.region
+      value: fra1
+      action: upsert
+    - key: cloud.resource_id
+      value: "416764860"
+      action: upsert
+    - key: cloud.account.id
+      value: "0eec03"
+      action: upsert
+    - key: host.name
+      value: "minecraft-server"
+      action: upsert
+  resource/minecraft:
+    attributes:
+    - key: service.namespace
+      value: "minecraft"
+      action: upsert
+    - key: service.name
+      value: "minecraft-server"
+      action: upsert
+  resource/minecraft-exporter:
+    attributes:
+    - key: service.namespace
+      value: "minecraft"
+      action: upsert
+    - key: service.name
+      value: "minecraft-exporter"
+      action: upsert
+  resource/self-monitoring:
+    attributes:
+    - key: service.namespace
+      value: "minecraft"
+      action: upsert
+    - key: service.name
+      value: "otelcol"
+      action: upsert
+
+exporters:
+  otlp/dash0:
+    endpoint: ${env:DASH0_OTLP_ENDPOINT}
+    auth:
+      authenticator: bearertokenauth/dash0
+
+service:
+  telemetry:
+    metrics:
+      address: 127.0.0.1:8888
+
+  pipelines:
+
+    logs/self-monitoring:
+      receivers:
+      - journald/self-monitoring
+      processors:
+      - resource/self-monitoring
+      - resourcedetection/system
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+    logs/minecraft-exporter:
+      receivers:
+      - journald/minecraft-exporter
+      processors:
+      - resourcedetection/system
+      - resource/minecraft-exporter
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+    logs/minecraft:
+      receivers:
+      - otlp
+      - journald/minecraft
+      processors:
+      - resourcedetection/system
+      - resource/minecraft
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+    metrics/host:
+      receivers:
+      - hostmetrics/cpu_and_memory
+      - hostmetrics/disk
+      processors:
+      - resourcedetection/system
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+    metrics/self-monitoring:
+      receivers:
+      - prometheus/self-monitoring
+      processors:
+      - resource/self-monitoring
+      - resourcedetection/system
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+    metrics/minecraft:
+      receivers:
+      - otlp
+      - prometheus/minecraft-exporter
+      processors:
+      - resourcedetection/system
+      - resource/minecraft
+      - resource/digital_ocean
+      - batch
+      exporters: [otlp/dash0]
+
+    traces/minecraft:
+      receivers:
+      - otlp
+      processors:
+      - resourcedetection/system
+      - resource/minecraft
+      - resource/digital_ocean
+      - batch
+      exporters:
+      - otlp/dash0
+
+  extensions:
+  - health_check
+  - bearertokenauth/dash0
